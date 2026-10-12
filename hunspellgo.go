@@ -55,6 +55,20 @@ func CStrings(x **C.char, len int) []string {
 	return s
 }
 
+// takeList copies a list returned by Hunspell_suggest or Hunspell_stem into Go
+// strings and frees it. length is the number of entries, not a status code, so a
+// list holding exactly one entry is a real result. Hunspell allocates no list
+// when it finds nothing, and then there is nothing to free.
+func (handle *Hunhandle) takeList(carray **C.char, length C.int) []string {
+	if length <= 0 || carray == nil {
+		return []string{}
+	}
+	strings := CStrings(carray, int(length))
+
+	C.Hunspell_free_list(handle.handle, &carray, length)
+	return strings
+}
+
 func (handle *Hunhandle) Suggest(word string) []string {
 	wordcs := C.CString(word)
 	defer C.free(unsafe.Pointer(wordcs))
@@ -62,13 +76,7 @@ func (handle *Hunhandle) Suggest(word string) []string {
 	var length C.int
 	length = C.Hunspell_suggest(handle.handle, &carray, wordcs)
 
-	if int(length) == 1 {
-		return []string{}
-	}
-	c_strings := CStrings(carray, int(length))
-
-	C.Hunspell_free_list(handle.handle, &carray, length)
-	return c_strings
+	return handle.takeList(carray, length)
 }
 
 func (handle *Hunhandle) Stem(word string) []string {
@@ -78,13 +86,7 @@ func (handle *Hunhandle) Stem(word string) []string {
 	var length C.int
 	length = C.Hunspell_stem(handle.handle, &carray, wordcs)
 
-	if int(length) == 1 {
-		return []string{}
-	}
-	strings := CStrings(carray, int(length))
-
-	C.Hunspell_free_list(handle.handle, &carray, length)
-	return strings
+	return handle.takeList(carray, length)
 }
 
 func (handle *Hunhandle) Spell(word string) bool {
