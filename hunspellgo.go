@@ -36,26 +36,21 @@ func Hunspell(affpath string, dpath string) *Hunhandle {
 	return h
 }
 
-func sptr(p uintptr) *C.char {
-	return *(**C.char)(unsafe.Pointer(p))
-}
-
 func CStrings(x **C.char, len int) []string {
 	var s []string
 
-	p := uintptr(unsafe.Pointer(x))
-	for i := 0; i < len; i++ {
-		if sptr(p) == nil {
+	for _, p := range unsafe.Slice(x, len) {
+		if p == nil {
 			break
 		}
-		s = append(s, C.GoString(sptr(p)))
-		p += unsafe.Sizeof(uintptr(0))
+		s = append(s, C.GoString(p))
 	}
 
 	return s
 }
 
-// takeList copies a list returned by Hunspell_suggest or Hunspell_stem into Go
+// takeList copies a list returned by Hunspell_suggest, Hunspell_stem, Hunspell_analyze
+// or Hunspell_stem2 into Go
 // strings and frees it. length is the number of entries, not a status code, so a
 // list holding exactly one entry is a real result. Hunspell allocates no list
 // when it finds nothing, and then there is nothing to free.
@@ -85,6 +80,40 @@ func (handle *Hunhandle) Stem(word string) []string {
 	var carray **C.char
 	var length C.int
 	length = C.Hunspell_stem(handle.handle, &carray, wordcs)
+
+	return handle.takeList(carray, length)
+}
+
+// Analyze returns Hunspell's morphological analyses of word, one per reading, such as
+// " st:hören fl:Y". Each fl: field names the affix flag that produced the word.
+func (handle *Hunhandle) Analyze(word string) []string {
+	wordcs := C.CString(word)
+	defer C.free(unsafe.Pointer(wordcs))
+	var carray **C.char
+	var length C.int
+	length = C.Hunspell_analyze(handle.handle, &carray, wordcs)
+
+	return handle.takeList(carray, length)
+}
+
+// StemAnalyses returns the stems of the given analyses. Stem(word) is
+// StemAnalyses(Analyze(word)), so a caller can drop readings before stemming.
+func (handle *Hunhandle) StemAnalyses(analyses []string) []string {
+	if len(analyses) == 0 {
+		return []string{}
+	}
+
+	desc := (**C.char)(C.malloc(C.size_t(len(analyses)) * C.size_t(unsafe.Sizeof((*C.char)(nil)))))
+	defer C.free(unsafe.Pointer(desc))
+	descs := unsafe.Slice(desc, len(analyses))
+	for i, analysis := range analyses {
+		descs[i] = C.CString(analysis)
+		defer C.free(unsafe.Pointer(descs[i]))
+	}
+
+	var carray **C.char
+	var length C.int
+	length = C.Hunspell_stem2(handle.handle, &carray, desc, C.int(len(analyses)))
 
 	return handle.takeList(carray, length)
 }

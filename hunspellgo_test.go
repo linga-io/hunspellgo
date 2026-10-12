@@ -82,6 +82,41 @@ func TestStem(t *testing.T) {
 	}
 }
 
+func TestAnalyze(t *testing.T) {
+	h := Hunspell("testdics/de_DE.aff", "testdics/de_DE.dic")
+	analyzetests := []struct {
+		in       string
+		expected []string
+	}{
+		{"hörte", []string{" st:hören fl:Y"}},
+		{"unschuldige", []string{" fl:U st:schuldig fl:A"}},
+		{"qwxzy", []string{}},
+		{"Liebe", []string{" st:lieben fl:I", " st:lieb fl:A", " st:Liebe"}},
+	}
+	for _, st := range analyzetests {
+		if got := h.Analyze(st.in); !slices.Equal(got, st.expected) {
+			t.Errorf("Unexpected Analyze result expected %q for %s, got %q", st.expected, st.in, got)
+		}
+	}
+}
+
+func TestStemAnalyses(t *testing.T) {
+	h := Hunspell("testdics/de_DE.aff", "testdics/de_DE.dic")
+	for _, word := range []string{"hörte", "qwxzy", "Häuser", "Liebe", "Füße"} {
+		if got, want := h.StemAnalyses(h.Analyze(word)), h.Stem(word); !slices.Equal(got, want) {
+			t.Errorf("Expected StemAnalyses(Analyze(%s)) to equal Stem %q, got %q", word, want, got)
+		}
+	}
+
+	analyses := h.Analyze("Liebe")
+	if got := h.StemAnalyses(analyses[2:]); !slices.Equal(got, []string{"Liebe"}) {
+		t.Errorf("Expected the stem of the kept analysis only, got %q", got)
+	}
+	if got := h.StemAnalyses(nil); len(got) != 0 {
+		t.Errorf("Expected no stems without analyses, got %q", got)
+	}
+}
+
 func TestEncoding(t *testing.T) {
 	h := Hunspell("testdics/de_DE.aff", "testdics/de_DE.dic")
 	enc := h.Encoding()

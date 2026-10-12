@@ -3,19 +3,17 @@ hunspellgo
 
 Hunspell bindings for Golang
 
-### Install 
-    go get github.com/akhenakh/hunspellgo 
+### Install
+    go get github.com/linga-io/hunspellgo
 
 ### Usage
-    import "github.com/akhenakh/hunspellgo" 
+    import "github.com/linga-io/hunspellgo"
 
-    h := hunspellgo.Hunspell("/home/akh/dev/hunspell/fr.aff", "/home/akh/dev/hunspell/fr.dic")
-    fmt.Println(h.Spell("Bonjour"))
-    fmt.Println(h.Spell("Bonj"))
-    fmt.Println(h.Spell("bébé"))
-    
-    true
-    false
-    true
+    h := hunspellgo.Hunspell("/path/to/de_DE.aff", "/path/to/de_DE.dic")
+    fmt.Println(h.Spell("Häuser"))        // true
+    fmt.Println(h.Stem("hörte"))          // [hören]
+    fmt.Println(h.Suggest("Muttr"))       // [Mutter Mutti]
+    fmt.Println(h.Analyze("unschuldige")) // [ fl:U st:schuldig fl:A]
 
-Suggest not working yet
+`Stem(word)` equals `StemAnalyses(Analyze(word))`, so readings can be filtered
+by their affix flags (`fl:`) before stemming.
